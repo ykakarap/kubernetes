@@ -70,6 +70,7 @@ type ApplyOptions struct {
 	Overwrite       bool
 	OpenAPIPatch    bool
 	PruneWhitelist  []string
+	Subresource     string
 
 	Validator     validation.Schema
 	Builder       *resource.Builder
@@ -193,6 +194,7 @@ func NewCmdApply(baseName string, f cmdutil.Factory, ioStreams genericclioptions
 	cmd.Flags().BoolVar(&o.All, "all", o.All, "Select all resources in the namespace of the specified resource types.")
 	cmd.Flags().StringArrayVar(&o.PruneWhitelist, "prune-whitelist", o.PruneWhitelist, "Overwrite the default whitelist with <group/version/kind> for --prune")
 	cmd.Flags().BoolVar(&o.OpenAPIPatch, "openapi-patch", o.OpenAPIPatch, "If true, use openapi to calculate diff when the openapi presents and the resource can be found in the openapi spec. Otherwise, fall back to use baked-in types.")
+	cmd.Flags().StringVar(&o.Subresource, "subresource", "", "Apply changes to the subresource")
 	cmdutil.AddDryRunFlag(cmd)
 	cmdutil.AddServerSideApplyFlags(cmd)
 	cmdutil.AddFieldManagerFlagVar(cmd, &o.FieldManager, FieldManagerClientSideApply)
@@ -262,6 +264,12 @@ func (o *ApplyOptions) Complete(f cmdutil.Factory, cmd *cobra.Command) error {
 
 	if o.DryRunStrategy == cmdutil.DryRunServer && o.DeleteOptions.ForceDeletion {
 		return fmt.Errorf("--dry-run=server cannot be used with --force")
+	}
+
+	if len(o.Subresource) != 0 {
+		if err := cmdutil.IsValidSubresource(o.Subresource); err != nil {
+			return err
+		}
 	}
 
 	o.OpenAPISchema, _ = f.OpenAPISchema()
@@ -336,6 +344,7 @@ func (o *ApplyOptions) GetObjects() ([]*resource.Info, error) {
 			ContinueOnError().
 			NamespaceParam(o.Namespace).DefaultNamespace().
 			FilenameParam(o.EnforceNamespace, &o.DeleteOptions.FilenameOptions).
+			Subresource(o.Subresource).
 			LabelSelectorParam(o.Selector).
 			Flatten().
 			Do()
@@ -419,7 +428,7 @@ func (o *ApplyOptions) applyOneObject(info *resource.Info) error {
 
 	helper := resource.NewHelper(info.Client, info.Mapping).
 		DryRun(o.DryRunStrategy == cmdutil.DryRunServer).
-		WithFieldManager(o.FieldManager)
+		WithFieldManager(o.FieldManager).WithSubresource(o.Subresource)
 
 	if o.DryRunStrategy == cmdutil.DryRunServer {
 		// Ensure the APIServer supports server-side dry-run for the resource,

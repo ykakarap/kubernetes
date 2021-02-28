@@ -55,10 +55,11 @@ type PatchOptions struct {
 	ToPrinter   func(string) (printers.ResourcePrinter, error)
 	Recorder    genericclioptions.Recorder
 
-	Local     bool
-	PatchType string
-	Patch     string
-	PatchFile string
+	Local       bool
+	PatchType   string
+	Patch       string
+	PatchFile   string
+	Subresource string
 
 	namespace                    string
 	enforceNamespace             bool
@@ -79,6 +80,7 @@ var (
 
 		JSON and YAML formats are accepted.`))
 
+	// TODO: add an example for --subresource here
 	patchExample = templates.Examples(i18n.T(`
 		# Partially update a node using a strategic merge patch. Specify the patch as JSON.
 		kubectl patch node k8s-node-1 -p '{"spec":{"unschedulable":true}}'
@@ -130,6 +132,7 @@ func NewCmdPatch(f cmdutil.Factory, ioStreams genericclioptions.IOStreams) *cobr
 	cmdutil.AddDryRunFlag(cmd)
 	cmdutil.AddFilenameOptionFlags(cmd, &o.FilenameOptions, "identifying the resource to update")
 	cmd.Flags().BoolVar(&o.Local, "local", o.Local, "If true, patch will operate on the content of the file, not the server-side resource.")
+	cmd.Flags().StringVar(&o.Subresource, "subresource", "", "Subresource the patch should be applied to")
 	cmdutil.AddFieldManagerFlagVar(cmd, &o.fieldManager, "kubectl-patch")
 
 	return cmd
@@ -194,7 +197,11 @@ func (o *PatchOptions) Validate() error {
 			return fmt.Errorf("--type must be one of %v, not %q", sets.StringKeySet(patchTypes).List(), o.PatchType)
 		}
 	}
-
+	if len(o.Subresource) != 0 {
+		if err := cmdutil.IsValidSubresource(o.Subresource); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -226,6 +233,7 @@ func (o *PatchOptions) RunPatch() error {
 		LocalParam(o.Local).
 		NamespaceParam(o.namespace).DefaultNamespace().
 		FilenameParam(o.enforceNamespace, &o.FilenameOptions).
+		Subresource(o.Subresource).
 		ResourceTypeOrNameArgs(false, o.args...).
 		Flatten().
 		Do()
@@ -257,7 +265,8 @@ func (o *PatchOptions) RunPatch() error {
 			helper := resource.
 				NewHelper(client, mapping).
 				DryRun(o.dryRunStrategy == cmdutil.DryRunServer).
-				WithFieldManager(o.fieldManager)
+				WithFieldManager(o.fieldManager).
+				WithSubresource(o.Subresource)
 			patchedObj, err := helper.Patch(namespace, name, patchType, patchBytes, nil)
 			if err != nil {
 				return err

@@ -89,6 +89,7 @@ type ReplaceOptions struct {
 	Namespace        string
 	EnforceNamespace bool
 	Raw              string
+	Subresource      string
 
 	Recorder genericclioptions.Recorder
 
@@ -131,6 +132,7 @@ func NewCmdReplace(f cmdutil.Factory, streams genericclioptions.IOStreams) *cobr
 	cmdutil.AddDryRunFlag(cmd)
 
 	cmd.Flags().StringVar(&o.Raw, "raw", o.Raw, "Raw URI to PUT to the server.  Uses the transport specified by the kubeconfig file.")
+	cmd.Flags().StringVar(&o.Subresource, "subresource", "", "Subresource the replace should be applied to")
 	cmdutil.AddFieldManagerFlagVar(cmd, &o.fieldManager, "kubectl-replace")
 
 	return cmd
@@ -242,6 +244,12 @@ func (o *ReplaceOptions) Validate(cmd *cobra.Command) error {
 		}
 	}
 
+	if len(o.Subresource) != 0 {
+		if err := cmdutil.IsValidSubresource(o.Subresource); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -299,6 +307,7 @@ func (o *ReplaceOptions) Run(f cmdutil.Factory) error {
 			NewHelper(info.Client, info.Mapping).
 			DryRun(o.DryRunStrategy == cmdutil.DryRunServer).
 			WithFieldManager(o.fieldManager).
+			WithSubresource(o.Subresource).
 			Replace(info.Namespace, info.Name, true, info.Object)
 		if err != nil {
 			return cmdutil.AddSourceToErr("replacing", info.Source, err)
@@ -368,6 +377,7 @@ func (o *ReplaceOptions) forceReplace() error {
 		ContinueOnError().
 		NamespaceParam(o.Namespace).DefaultNamespace().
 		FilenameParam(o.EnforceNamespace, &o.DeleteOptions.FilenameOptions).
+		Subresource(o.Subresource).
 		Flatten().
 		Do()
 	err = r.Err()

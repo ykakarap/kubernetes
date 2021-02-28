@@ -770,3 +770,19 @@ func GetDefaultContainerName(pod *corev1.Pod, enableSuggestedCmdUsage bool, w io
 
 	return pod.Spec.Containers[0].Name
 }
+
+// TODO: update this list
+var SubresourceTypes = []string{"status", "scale"}
+
+func IsValidSubresource(subresource string) error {
+	var validSubresource bool
+	for _, s := range SubresourceTypes {
+		if subresource == s {
+			validSubresource = true
+		}
+	}
+	if !validSubresource {
+		return fmt.Errorf("--subresource must be one of %v, not %q", sets.StringKeySet(SubresourceTypes).List(), subresource)
+	}
+	return nil
+}
