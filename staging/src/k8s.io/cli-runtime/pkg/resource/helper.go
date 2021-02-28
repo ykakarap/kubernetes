@@ -34,6 +34,8 @@ var metadataAccessor = meta.NewAccessor()
 type Helper struct {
 	// The name of this resource as the server would recognize it
 	Resource string
+	// The name of the subresource as the server would recognize it
+	Subresource string
 	// A RESTClient capable of mutating this resource.
 	RESTClient RESTClient
 	// True if the resource type is scoped to namespaces
@@ -74,11 +76,18 @@ func (m *Helper) WithFieldManager(fieldManager string) *Helper {
 	return m
 }
 
+// Subresource sets the helper to access (<resource>/[ns/<namespace>/]<name>/<subresource>)
+func (m *Helper) WithSubresource(subresource string) *Helper {
+	m.Subresource = subresource
+	return m
+}
+
 func (m *Helper) Get(namespace, name string) (runtime.Object, error) {
 	req := m.RESTClient.Get().
 		NamespaceIfScoped(namespace, m.NamespaceScoped).
 		Resource(m.Resource).
-		Name(name)
+		Name(name).
+		SubResource(m.Subresource)
 	return req.Do(context.TODO()).Get()
 }
 
@@ -186,6 +195,7 @@ func (m *Helper) Patch(namespace, name string, pt types.PatchType, data []byte, 
 		NamespaceIfScoped(namespace, m.NamespaceScoped).
 		Resource(m.Resource).
 		Name(name).
+		SubResource(m.Subresource).
 		VersionedParams(options, metav1.ParameterCodec).
 		Body(data).
 		Do(context.TODO()).
@@ -210,7 +220,7 @@ func (m *Helper) Replace(namespace, name string, overwrite bool, obj runtime.Obj
 	}
 	if version == "" && overwrite {
 		// Retrieve the current version of the object to overwrite the server object
-		serverObj, err := c.Get().NamespaceIfScoped(namespace, m.NamespaceScoped).Resource(m.Resource).Name(name).Do(context.TODO()).Get()
+		serverObj, err := c.Get().NamespaceIfScoped(namespace, m.NamespaceScoped).Resource(m.Resource).Name(name).SubResource(m.Subresource).Do(context.TODO()).Get()
 		if err != nil {
 			// The object does not exist, but we want it to be created
 			return m.replaceResource(c, m.Resource, namespace, name, obj, options)
@@ -232,6 +242,7 @@ func (m *Helper) replaceResource(c RESTClient, resource, namespace, name string,
 		NamespaceIfScoped(namespace, m.NamespaceScoped).
 		Resource(resource).
 		Name(name).
+		SubResource(m.Subresource).
 		VersionedParams(options, metav1.ParameterCodec).
 		Body(obj).
 		Do(context.TODO()).

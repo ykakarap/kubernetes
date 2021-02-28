@@ -81,7 +81,8 @@ type Builder struct {
 	limitChunks       int64
 	requestTransforms []RequestTransform
 
-	resources []string
+	resources   []string
+	subresource string
 
 	namespace    string
 	allNamespace bool
@@ -527,6 +528,13 @@ func (b *Builder) TransformRequests(opts ...RequestTransform) *Builder {
 	return b
 }
 
+// Subresource instructs the builder to retrieve the object at the
+// subresource path instead of the main resource path.
+func (b *Builder) Subresource(subresource string) *Builder {
+	b.subresource = subresource
+	return b
+}
+
 // SelectEverythingParam
 func (b *Builder) SelectAllParam(selectAll bool) *Builder {
 	if selectAll && (b.labelSelector != nil || b.fieldSelector != nil) {
@@ -858,6 +866,10 @@ func (b *Builder) visitBySelector() *Result {
 	if len(b.resources) == 0 {
 		return result.withError(fmt.Errorf("at least one resource must be specified to use a selector"))
 	}
+	if len(b.subresource) != 0 {
+		return result.withError(fmt.Errorf("--subresource cannot be provided when a selector is specified"))
+	}
+
 	mappings, err := b.resourceMappings()
 	if err != nil {
 		result.err = err
@@ -932,6 +944,7 @@ func (b *Builder) visitByResource() *Result {
 	if len(b.resources) != 0 {
 		return result.withError(fmt.Errorf("you may not specify individual resources and bulk resources in the same call"))
 	}
+	// TODO: validate that --subresource is only specified for GVKs where it exists
 
 	// retrieve one client for each resource
 	mappings, err := b.resourceTupleMappings()
@@ -979,10 +992,11 @@ func (b *Builder) visitByResource() *Result {
 		}
 
 		info := &Info{
-			Client:    client,
-			Mapping:   mapping,
-			Namespace: selectorNamespace,
-			Name:      tuple.Name,
+			Client:      client,
+			Mapping:     mapping,
+			Namespace:   selectorNamespace,
+			Name:        tuple.Name,
+			Subresource: b.subresource,
 		}
 		items = append(items, info)
 	}
@@ -1013,6 +1027,7 @@ func (b *Builder) visitByName() *Result {
 	if len(b.resources) > 1 {
 		return result.withError(fmt.Errorf("you must specify only one resource"))
 	}
+	// TODO: validate that --subresource is only specified for GVKs where it exists
 
 	mappings, err := b.resourceMappings()
 	if err != nil {
@@ -1043,10 +1058,11 @@ func (b *Builder) visitByName() *Result {
 	visitors := []Visitor{}
 	for _, name := range b.names {
 		info := &Info{
-			Client:    client,
-			Mapping:   mapping,
-			Namespace: selectorNamespace,
-			Name:      name,
+			Client:      client,
+			Mapping:     mapping,
+			Namespace:   selectorNamespace,
+			Name:        name,
+			Subresource: b.subresource,
 		}
 		visitors = append(visitors, info)
 	}
