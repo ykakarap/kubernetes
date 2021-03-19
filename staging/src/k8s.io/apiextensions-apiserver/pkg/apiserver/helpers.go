@@ -37,6 +37,36 @@ func getColumnsForVersion(crd *apiextensionsv1.CustomResourceDefinition, version
 	return nil, fmt.Errorf("version %s not found in apiextensionsv1.CustomResourceDefinition: %v", version, crd.Name)
 }
 
+// getScaleColumnsForVersion returns 2 columns.
+// One for desired state and the other for actual statue
+func getScaleColumnsForVersion(crd *apiextensionsv1.CustomResourceDefinition, version string) ([]apiextensionsv1.CustomResourceColumnDefinition, error) {
+	for _, v := range crd.Spec.Versions {
+		if version == v.Name {
+			var cols []apiextensionsv1.CustomResourceColumnDefinition
+			if v.Subresources.Scale != nil {
+				if v.Subresources.Scale.SpecReplicasPath != "" {
+					cols = append(cols, apiextensionsv1.CustomResourceColumnDefinition{
+						Name:        "Desired",
+						Type:        "integer",
+						Description: "Number of desired replicas",
+						JSONPath:    ".spec.replicas",
+					})
+				}
+				if v.Subresources.Scale.StatusReplicasPath != "" {
+					cols = append(cols, apiextensionsv1.CustomResourceColumnDefinition{
+						Name:        "Available",
+						Type:        "integer",
+						Description: "Number of actual replicas",
+						JSONPath:    ".status.replicas",
+					})
+				}
+			}
+			return serveDefaultColumnsIfEmpty(cols), nil
+		}
+	}
+	return nil, fmt.Errorf("version %s not found in apiextensionsv1.CustomResourceDefinition: %v", version, crd.Name)
+}
+
 // serveDefaultColumnsIfEmpty applies logically defaulting to columns, if the input columns is empty.
 // NOTE: in this way, the newly logically-defaulted columns is not pointing to the original CRD object.
 // One cannot mutate the original CRD columns using the logically-defaulted columns. Please iterate through

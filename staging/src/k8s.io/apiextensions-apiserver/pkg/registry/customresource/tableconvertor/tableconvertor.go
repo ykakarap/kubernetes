@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -101,7 +102,15 @@ func (c *convertor) ConvertToTable(ctx context.Context, obj runtime.Object, tabl
 		cells[0] = name
 		customHeaders := c.headers[1:]
 		for i, column := range c.additionalColumns {
-			results, err := column.FindResults(obj.(runtime.Unstructured).UnstructuredContent())
+			us, ok := obj.(runtime.Unstructured)
+			if !ok {
+				mi, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+				if err != nil {
+					return nil, err
+				}
+				us = &unstructured.Unstructured{Object: mi}
+			}
+			results, err := column.FindResults(us.UnstructuredContent())
 			if err != nil || len(results) == 0 || len(results[0]) == 0 {
 				cells = append(cells, nil)
 				continue

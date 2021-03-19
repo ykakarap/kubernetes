@@ -175,6 +175,10 @@ func (r *ScaleREST) Update(ctx context.Context, name string, objInfo rest.Update
 	return scaleFromRC(rc), false, nil
 }
 
+func (r *ScaleREST) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
+	return r.store.ConvertToTable(ctx, object, tableOptions)
+}
+
 func toScaleCreateValidation(f rest.ValidateObjectFunc) rest.ValidateObjectFunc {
 	return func(ctx context.Context, obj runtime.Object) error {
 		return f(ctx, scaleFromRC(obj.(*api.ReplicationController)))

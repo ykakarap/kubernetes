@@ -782,7 +782,7 @@ func IsValidSubresource(subresource string) error {
 		}
 	}
 	if !validSubresource {
-		return fmt.Errorf("--subresource must be one of %v, not %q", sets.StringKeySet(SubresourceTypes).List(), subresource)
+		return fmt.Errorf("--subresource must be one of %v, not %q", SubresourceTypes, subresource)
 	}
 	return nil
 }
