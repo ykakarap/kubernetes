@@ -91,6 +91,7 @@ func createAPIExtensionsConfig(
 			MasterCount:          masterCount,
 			AuthResolverWrapper:  authResolverWrapper,
 			ServiceResolver:      serviceResolver,
+			CRDInstallPath:       commandOptions.CRDInstallPath,
 		},
 	}
 

@@ -86,6 +86,8 @@ type ExtraConfig struct {
 	ServiceResolver webhook.ServiceResolver
 	// AuthResolverWrapper is used in CR webhook converters
 	AuthResolverWrapper webhook.AuthenticationInfoResolverWrapper
+
+	CRDInstallPath string
 }
 
 type Config struct {
@@ -279,6 +281,8 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		if err != nil {
 			return err
 		}
+
+		fmt.Printf("the user defined location for custom resource definitions is: '%v'\n", c.ExtraConfig.CRDInstallPath)
 
 		if err := crdinstall.Install(ctx, postStartHookContext.LoopbackClientConfig); err != nil {
 			return err

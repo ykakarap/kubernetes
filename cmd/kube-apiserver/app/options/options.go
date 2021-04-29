@@ -92,6 +92,8 @@ type ServerRunOptions struct {
 	ServiceAccountTokenMaxExpiration time.Duration
 
 	ShowHiddenMetricsForVersion string
+
+	CRDInstallPath string
 }
 
 // NewServerRunOptions creates a new ServerRunOptions object with default parameters
@@ -281,6 +283,8 @@ func (s *ServerRunOptions) Flags() (fss cliflag.NamedFlagSets) {
 
 	fs.StringVar(&s.ServiceAccountSigningKeyFile, "service-account-signing-key-file", s.ServiceAccountSigningKeyFile, ""+
 		"Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.")
+
+	fs.StringVar(&s.CRDInstallPath, "crd-install-path", "", "Path to the directory with crd yaml file")
 
 	return fss
 }
