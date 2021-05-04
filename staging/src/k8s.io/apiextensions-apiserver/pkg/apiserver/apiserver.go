@@ -18,6 +18,10 @@ package apiserver
 
 import (
 	"fmt"
+	apiextensionsfeatures "k8s.io/apiextensions-apiserver/pkg/features"
+	"k8s.io/apiextensions-apiserver/pkg/startupcrd"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/klog/v2"
 	"net/http"
 	"time"
 
@@ -84,6 +88,10 @@ type ExtraConfig struct {
 	ServiceResolver webhook.ServiceResolver
 	// AuthResolverWrapper is used in CR webhook converters
 	AuthResolverWrapper webhook.AuthenticationInfoResolverWrapper
+
+	// ExtraStartupCRDsDirectory is used to specify the location from which user provided
+	// startup CRDs will be installed
+	ExtraStartupCRDsDirectory string
 }
 
 type Config struct {
@@ -263,6 +271,50 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		return wait.PollImmediateUntil(100*time.Millisecond, func() (bool, error) {
 			return s.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
 		}, context.StopCh)
+	})
+
+	// Add a post startup hook here that installs all the objects (generally CRDs) that need to be installed as the api-server comes-up
+	// We will use the LoopbackClientConfig of the api server to create a client and use that client to patch objects
+	s.GenericAPIServer.AddPostStartHookOrDie("crd-installer", func(postStartHookContext genericapiserver.PostStartHookContext) error {
+		if !utilfeature.DefaultFeatureGate.Enabled(apiextensionsfeatures.InstallCRDsAtStartup) {
+			klog.InfoS("Skipping installing bundled CRDs at startup since feature gate `InstallCRDsAtStartup` is disabled")
+			return nil
+		}
+
+		//	initialize readers
+		var readers startupcrd.Readers
+		readers = append(readers, startupcrd.GetInbuiltEmbeddedFSReader())
+
+		// if a extra directory is specified, init a reader and add to the readers slice
+		if c.ExtraConfig.ExtraStartupCRDsDirectory != "" {
+			readers = append(readers, startupcrd.FSReader{ManifestDirectory: c.ExtraConfig.ExtraStartupCRDsDirectory})
+		}
+
+		// read objects
+		objs, err := readers.Read()
+		if err != nil {
+			return err
+		}
+
+		// get a Startup CRD Installer
+		installer, err := startupcrd.NewInstallerFromHookContext(postStartHookContext)
+		if err != nil {
+			return err
+		}
+
+		// install the bundled and specified CRDs
+		if err := installer.Install(objs); err != nil {
+			return err
+		}
+
+		// wait for the "newly" installed crds to be available
+		if err := wait.PollImmediateUntil(100*time.Millisecond, func() (bool, error) {
+			return s.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+		}, postStartHookContext.StopCh); err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	return s, nil
