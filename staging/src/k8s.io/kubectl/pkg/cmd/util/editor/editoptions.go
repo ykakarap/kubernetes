@@ -62,6 +62,7 @@ type EditOptions struct {
 
 	OutputPatch        bool
 	WindowsLineEndings bool
+	Subresource        string
 
 	cmdutil.ValidateOptions
 
@@ -183,6 +184,7 @@ func (o *EditOptions) Complete(f cmdutil.Factory, args []string, cmd *cobra.Comm
 	}
 	r := b.NamespaceParam(cmdNamespace).DefaultNamespace().
 		FilenameParam(enforceNamespace, &o.FilenameOptions).
+		Subresource(o.Subresource).
 		ContinueOnError().
 		Flatten().
 		Do()
@@ -197,6 +199,7 @@ func (o *EditOptions) Complete(f cmdutil.Factory, args []string, cmd *cobra.Comm
 		return f.NewBuilder().
 			Unstructured().
 			Stream(bytes.NewReader(data), "edited-file").
+			Subresource(o.Subresource).
 			ContinueOnError().
 			Flatten().
 			Do()
@@ -215,6 +218,9 @@ func (o *EditOptions) Complete(f cmdutil.Factory, args []string, cmd *cobra.Comm
 
 // Validate checks the EditOptions to see if there is sufficient information to run the command.
 func (o *EditOptions) Validate() error {
+	if err := cmdutil.IsValidSubresource(o.Subresource); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -560,7 +566,7 @@ func (o *EditOptions) annotationPatch(update *resource.Info) error {
 	if err != nil {
 		return err
 	}
-	helper := resource.NewHelper(client, mapping).WithFieldManager(o.FieldManager)
+	helper := resource.NewHelper(client, mapping).WithFieldManager(o.FieldManager).WithSubresource(o.Subresource)
 	_, err = helper.Patch(o.CmdNamespace, update.Name, patchType, patch, nil)
 	if err != nil {
 		return err
@@ -692,7 +698,7 @@ func (o *EditOptions) visitToPatch(originalInfos []*resource.Info, patchVisitor 
 		}
 
 		patched, err := resource.NewHelper(info.Client, info.Mapping).
-			WithFieldManager(o.FieldManager).
+			WithFieldManager(o.FieldManager).WithSubresource(o.Subresource).
 			Patch(info.Namespace, info.Name, patchType, patch, nil)
 		if err != nil {
 			fmt.Fprintln(o.ErrOut, results.addError(err, info))
