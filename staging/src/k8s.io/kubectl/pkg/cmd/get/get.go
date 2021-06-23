@@ -187,7 +187,7 @@ func NewCmdGet(parent string, f cmdutil.Factory, streams genericclioptions.IOStr
 	addServerPrintColumnFlags(cmd, o)
 	cmdutil.AddFilenameOptionFlags(cmd, &o.FilenameOptions, "identifying the resource to get from a server.")
 	cmdutil.AddChunkSizeFlag(cmd, &o.ChunkSize)
-	cmdutil.AddSubresourceFlags(cmd, &o.subresource, "If specified, gets the subresource of the requested object.")
+	cmdutil.AddSubresourceFlags(cmd, &o.subresource, "This is an 'alpha' flag. If specified, gets the subresource of the requested object.")
 	return cmd
 }
 
